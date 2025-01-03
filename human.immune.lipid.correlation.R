@@ -1,3 +1,4 @@
+
 ###run regular correlations
 #turn off warnings. To turn back on change value to 0
 options(warn = -1)
@@ -13,6 +14,8 @@ library(dplyr)
 library(tidyr)
 library(corrplot)
 library(stringr)
+library(Hmisc)
+library(pheatmap)
 
 setwd("/Users/teestanaskar/Dropbox/Teesta/Placenta/Human.Placenta/partial correlation immune lipids")
 ##I downloaded the full lists of the genes associated with term GOBP_PHOSPHOLIPID_METABOLIC_PROCESS
@@ -57,235 +60,94 @@ print(combined_list)
 #load metadata
 meta = read.xlsx("/Users/teestanaskar/Dropbox/Teesta/Placenta/Human.Placenta/bothsex/RNAseq/data/HUMAN.PLACENTA.METADATA/WorkingMetadata.updatedbyTeesta.consolidatedinfo.Anissa.Greg.Placenta.inventory.xlsx", sheet = 3)
 meta = meta[1:93,]
-male = meta[meta$Group=='Control' & meta$CSEX =='male',]
-rownames(male) = male$Placenta_Seq_ID
+#male control
+male.control <- meta[meta$Group=='Control' & meta$CSEX =='male',]
+rownames(male.control) = male.control$Placenta_Seq_ID
+#male cannabis
+male.cannabis <- meta[meta$Group=='Cannabis' & meta$CSEX =='male',]
+rownames(male.cannabis) = male.cannabis$Placenta_Seq_ID
+##female control
+female.control <- meta[meta$Group=='Control' & meta$CSEX =='female',]
+rownames(female.control) = female.control$Placenta_Seq_ID
+#female cannabis
+female.cannabis <- meta[meta$Group=='Cannabis' & meta$CSEX =='female',]
+rownames(female.cannabis) = female.cannabis$Placenta_Seq_ID
 #load vst counts
 vst = read.csv("/Users/teestanaskar/Dropbox/Teesta/Placenta/Human.Placenta/bothsex/RNAseq/data/VSTcountdata.human.96subjwithoutSANDY/VST_counts.abovebasemean5.csv")
 #subsetting the male vst
 rownames(vst) = vst[,1]
 vst = vst[,2:ncol(vst)]
-#rownames = rownames(male)
-#modified_row_names <- sub("[A-Za-z]+$", "", rownames)
-#rownames(male) = modified_row_names
-malevst = vst[,colnames(vst) %in% rownames(male)]
-#subset male vst for selected lipids and immune genes
+# Subset and transpose the malevst data for control and cannabis conditions
+male.control.vst <- vst[,colnames(vst) %in% rownames(male.control)]
+male.control.vst.sub <- male.control.vst[rownames(male.control.vst) %in% combined_list,]
+male.control.vst.sub <- t(male.control.vst.sub)
 
-male.control.vst.sub = malevst[rownames(malevst) %in% combined_list,]
-male.control.vst.sub = t(male.control.vst.sub)
-corrs = rcorr(as.matrix(male.control.vst.sub), type = "pearson")
-#corrs = rcorr(as.matrix(lipids_immune[,male.control.vst.sub]),type="pearson")
-rownames(corrs$r)=colnames(male.control.vst.sub)
-colnames(corrs$r)=colnames(male.control.vst.sub)
-rownames(corrs$P)=colnames(male.control.vst.sub)
-colnames(corrs$P)=colnames(male.control.vst.sub)
-control_male_corrs = corrs
-control_male_ps = control_male_corrs$P
-control_male_ps[is.nan(control_male_ps)]=1
-#next corr for female control
-female = meta[meta$Group=='Control' & meta$CSEX =='female',]
-rownames(female) = female$Placenta_Seq_ID
-#load vst counts
-#subsetting the female vst
-femalevst = vst[,colnames(vst) %in% rownames(female)]
-#subset female vst for selected lipids and immune genes
+male.cannabis.vst <- vst[,colnames(vst) %in% rownames(male.cannabis)]
+male.cannabis.vst.sub <- male.cannabis.vst[rownames(male.cannabis.vst) %in% combined_list,]
+male.cannabis.vst.sub <- t(male.cannabis.vst.sub)
 
-female.control.vst.sub = femalevst[rownames(femalevst) %in% combined_list,]
-female.control.vst.sub = t(female.control.vst.sub)
-corrs = rcorr(as.matrix(female.control.vst.sub),type="pearson")
-rownames(corrs$r)=colnames(female.control.vst.sub)
-colnames(corrs$r)=colnames(female.control.vst.sub)
-rownames(corrs$P)=colnames(female.control.vst.sub)
-colnames(corrs$P)=colnames(female.control.vst.sub)
-control_female_corrs = corrs
-control_female_ps = control_female_corrs$P
-control_female_ps[is.nan(control_female_ps)]=1
 
-#total correlation datasets from controls 
-#1) control_male_corrs 2)control_female_corrs
+# Calculate correlation matrices for control and cannabis conditions
+control_corrs <- rcorr(as.matrix(male.control.vst.sub), type = "pearson")
+cannabis_corrs <- rcorr(as.matrix(male.cannabis.vst.sub), type = "pearson")
 
-## same for cannabis##########################
-male = meta[meta$Group=='Cannabis' & meta$CSEX =='male',]
-rownames(male) = male$Placenta_Seq_ID
-#subsetting vst count
-malevst = vst[,colnames(vst) %in% rownames(male)]
-#subset male vst for selected lipids and immune genes
-#total lipids and cytokines to be correlated
+# Extract correlation matrices
+control_corr_matrix <- control_corrs$r
+cannabis_corr_matrix <- cannabis_corrs$r
 
-male.cannabis.vst.sub = malevst[rownames(malevst) %in% combined_list,]
-male.cannabis.vst.sub = t(male.cannabis.vst.sub)
-corrs = rcorr(as.matrix(male.cannabis.vst.sub), type = "pearson")
-#corrs = rcorr(as.matrix(lipids_immune[,male.cannabis.vst.sub]),type="pearson")
-rownames(corrs$r)=colnames(male.cannabis.vst.sub)
-colnames(corrs$r)=colnames(male.cannabis.vst.sub)
-rownames(corrs$P)=colnames(male.cannabis.vst.sub)
-colnames(corrs$P)=colnames(male.cannabis.vst.sub)
-cannabis_male_corrs = corrs
-cannabis_male_ps = cannabis_male_corrs$P
-cannabis_male_ps[is.nan(cannabis_male_ps)]=1
-#next corr for female control
-female = meta[meta$Group=='Cannabis' & meta$CSEX =='female',]
-rownames(female) = female$Placenta_Seq_ID
-#load vst counts
-#subsetting the female vst
-femalevst = vst[,colnames(vst) %in% rownames(female)]
-#subset female vst for selected lipids and immune genes
-female.cannabis.vst.sub = femalevst[rownames(femalevst) %in% combined_list,]
-female.cannabis.vst.sub = t(female.cannabis.vst.sub)
-corrs = rcorr(as.matrix(female.cannabis.vst.sub),type="pearson")
-rownames(corrs$r)=colnames(female.cannabis.vst.sub)
-colnames(corrs$r)=colnames(female.cannabis.vst.sub)
-rownames(corrs$P)=colnames(female.cannabis.vst.sub)
-colnames(corrs$P)=colnames(female.cannabis.vst.sub)
-cannabis_female_corrs = corrs
-cannabis_female_ps = cannabis_female_corrs$P
-cannabis_female_ps[is.nan(cannabis_female_ps)]=1
+# Perform hierarchical clustering on the upper triangle of the control correlation matrix
+dist_control <- as.dist((1 - control_corr_matrix) / 2)
+hclust_control <- hclust(dist_control, method = "complete")
+order_control <- hclust_control$order
 
-#total correlation datasets from cannabis 
-#1) cannabis_male_corrs 2) cannabis_female_corrs
-#four correlations sets for merging plots
-#1) control_male_corrs 2)control_female_corrs 3) cannabis_male_corrs 4) cannabis_female_corrs
-#############################create plots#########################################
-#merged matrix plots
-control_merged_male.corr_matrix = control_male_corrs$r
-control_corr_UT = upper.tri(control_merged_male.corr_matrix)
-control_merged_male.corr_matrix[control_corr_UT] = cannabis_male_corrs$r[control_corr_UT]
+# Reorder the control and cannabis correlation matrices according to the clustering order
+reordered_control_corr_matrix <- control_corr_matrix[order_control, order_control]
+reordered_cannabis_corr_matrix <- cannabis_corr_matrix[order_control, order_control]
 
-control_merged_p_matrix = control_male_ps
-control_p_UT = upper.tri(control_merged_p_matrix)
-control_merged_p_matrix[control_p_UT] = cannabis_male_ps[control_p_UT]
+# Initialize the combined matrix with the reordered control correlation matrix
+combined_corr_matrix <- reordered_control_corr_matrix
 
-tiff('controlvscannabis.male.tiff', 
-     width=10, 
-     height = 10, 
-     units = 'cm', 
-     compression ='lzw', res=600)
-corrplot(control_merged_male.corr_matrix,
-         method='circle',
-         is.corr = F,
-         p.mat=control_merged_p_matrix,
-         insig= "label_sig",
-         col= COL2('RdBu', 100),
-         order='original',
-         diag=F,
-         mar=c(1,1,1,1),
-         title='control cannabis male',
-         tl.col="black",
-         tl.cex= 1,
-         pch.col='white',
-         pch.cex = 2,
-         cl.cex=1,
-         cl.pos = 'r',
-         col.lim= c(-1,1))
-dev.off()
-##the above corrplot didn't work and since its going too big I have to use complexheatmap function for that
-Heatmap(control_merged_male.corr_matrix,
-        name = "Correlation",
-        col = colorRamp2(c(-1, 0, 1), c("dodgerblue", "white", "red")),
-        show_row_names = FALSE,
-        show_column_names = FALSE,
-        #cluster_rows = F,
-        #cluster_columns = F,
-        top_annotation = HeatmapAnnotation(lines = anno_lines(control_merged_p_matrix)))
+# Combine the upper triangle of the reordered control matrix with the lower triangle of the reordered cannabis matrix
+combined_corr_matrix[lower.tri(combined_corr_matrix)] <- reordered_cannabis_corr_matrix[lower.tri(reordered_cannabis_corr_matrix)]
 
-#or
-heatmap_result <- pheatmap(control_merged_male.corr_matrix,
-         color = colorRampPalette(c("blue", "white", "magenta"))(100),
+# Visualize the combined correlation matrix using pheatmap
+pheatmap(combined_corr_matrix, cluster_rows = FALSE, cluster_cols = FALSE, color = colorRampPalette(c("dodgerblue", "white", "magenta"))(100),
          show_rownames = FALSE,
-         show_colnames = FALSE,
-         cluster_rows = TRUE,
-         #cluster_cols = TRUE,
-         #annotation_row = control_merged_p_matrix,
-         #annotation_col = control_merged_p_matrix,
-         main = "Control Cannabis Male Correlation Matrix")
-#############################create plots#########################################
-#merged matrix plots
-control_merged_female.corr_matrix = control_female_corrs$r
-control_corr_UT = upper.tri(control_merged_female.corr_matrix)
-control_merged_female.corr_matrix[control_corr_UT] = cannabis_female_corrs$r[control_corr_UT]
+         show_colnames = FALSE)
 
-control_merged_female_p_matrix = control_female_ps
-control_p_UT = upper.tri(control_merged_female_p_matrix)
-control_merged_female_p_matrix[control_p_UT] = cannabis_female_ps[control_p_UT]
+# Subset and transpose the femalevst data for control and cannabis conditions
+female.control.vst <- vst[,colnames(vst) %in% rownames(female.control)]
+female.control.vst.sub <- female.control.vst[rownames(female.control.vst) %in% combined_list,]
+female.control.vst.sub <- t(female.control.vst.sub)
 
-tiff('control.tiff', 
-     width=10, 
-     height = 10, 
-     units = 'cm', 
-     compression ='lzw', res=600)
-corrplot(control_merged_female.corr_matrix,
-         method='circle',
-         is.corr = F,
-         p.mat=control_merged_female_p_matrix,
-         insig= "label_sig",
-         col= COL2('RdBu', 100),
-         order='original',
-         diag=F,
-         mar=c(1,1,1,1),
-         title='control vs cannabis female',
-         tl.col="black",
-         tl.cex= 1,
-         pch.col='white',
-         pch.cex = 2,
-         cl.cex=1,
-         cl.pos = 'r',
-         col.lim= c(-1,1))
-dev.off()
-##**********************************************************************##
-Heatmap(control_merged_female.corr_matrix,
-        name = "Correlation",
-        col = colorRamp2(c(-1, 0, 1), c("dodgerblue3", "white", "magenta")),
-        show_row_names = FALSE,
-        show_column_names = FALSE,
-        cluster_rows = TRUE,
-        cluster_columns = TRUE,
-        top_annotation = HeatmapAnnotation(lines = anno_lines(control_merged_female_p_matrix)))
-#or
-# Install pheatmap if you haven't already
-if (!requireNamespace("pheatmap", quietly = TRUE)) {
-  install.packages("pheatmap")
-}
+female.cannabis.vst <- vst[,colnames(vst) %in% rownames(female.cannabis)]
+female.cannabis.vst.sub <- female.cannabis.vst[rownames(female.cannabis.vst) %in% combined_list,]
+female.cannabis.vst.sub <- t(female.cannabis.vst.sub)
 
-library(pheatmap)
-tiff('control_cannabis_male.tiff', 
-     width=10, 
-     height = 10, 
-     units = 'cm', 
-     compression ='lzw', res=600)
-# Use pheatmap to plot the correlation matrix
-pheatmap(control_merged_female.corr_matrix,
-         color = colorRampPalette(c("blue", "white", "magenta"))(100),
+# Calculate correlation matrices for control and cannabis conditions
+control_corrs <- rcorr(as.matrix(female.control.vst.sub), type = "pearson")
+cannabis_corrs <- rcorr(as.matrix(female.cannabis.vst.sub), type = "pearson")
+
+# Extract correlation matrices
+control_corr_matrix <- control_corrs$r
+cannabis_corr_matrix <- cannabis_corrs$r
+
+# Perform hierarchical clustering on the upper triangle of the control correlation matrix
+dist_control <- as.dist((1 - control_corr_matrix) / 2)
+hclust_control <- hclust(dist_control, method = "complete")
+order_control <- hclust_control$order
+
+# Reorder the control and cannabis correlation matrices according to the clustering order
+reordered_control_corr_matrix <- control_corr_matrix[order_control, order_control]
+reordered_cannabis_corr_matrix <- cannabis_corr_matrix[order_control, order_control]
+
+# Initialize the combined matrix with the reordered control correlation matrix
+combined_corr_matrix <- reordered_control_corr_matrix
+
+# Combine the upper triangle of the reordered control matrix with the lower triangle of the reordered cannabis matrix
+combined_corr_matrix[lower.tri(combined_corr_matrix)] <- reordered_cannabis_corr_matrix[lower.tri(reordered_cannabis_corr_matrix)]
+
+# Visualize the combined correlation matrix using pheatmap
+pheatmap(combined_corr_matrix, cluster_rows = FALSE, cluster_cols = FALSE, color = colorRampPalette(c("blue", "white", "magenta"))(100),
          show_rownames = FALSE,
-         show_colnames = FALSE,
-         cluster_rows = TRUE,
-         cluster_cols = TRUE,
-         #annotation_row = control_merged_p_matrix,
-         #annotation_col = control_merged_p_matrix,
-         main = "Control Cannabis Female Correlation Matrix")
-
-pheatmap(control_merged_male.corr_matrix,
-         color = colorRampPalette(c("dodgerblue3", "white", "magenta"))(100),
-         show_rownames = FALSE,
-         show_colnames = FALSE,
-         cluster_rows = TRUE,
-         cluster_cols = TRUE,
-         #annotation_row = control_merged_p_matrix,
-         #annotation_col = control_merged_p_matrix,
-         main = "Control Cannabis Male Correlation Matrix")
-#### if i want to modify the colors in prizm then I need to open them in prizm for that exporting the data from R to open in prizm
-clustered_rows <- heatmap_result$tree_row
-clustered_cols <- heatmap_result$tree_col
-
-# Reorder rows and columns in the original dataframe
-df_clustered <- control_merged_male.corr_matrix[clustered_rows, clustered_cols]
-
-# Save the clustered dataframe as a CSV file
-write.csv(df_clustered, "clustered_dataframe.csv", row.names = TRUE)
-
-row_hclust <- hclust(as.dist(1 - control_merged_male.corr_matrix))
-col_hclust <- hclust(as.dist(1 - t(control_merged_male.corr_matrix)))
-
-# Reorder the correlation matrix based on clustering
-row_order <- row_hclust$order
-col_order <- col_hclust$order
-
-control_merged_male.corr_matrix <- control_merged_male.corr_matrix[row_order, col_order]
+         show_colnames = FALSE)
